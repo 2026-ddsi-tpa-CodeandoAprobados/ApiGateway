@@ -1,0 +1,63 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # Los modulos estan en el plan gratis de Render: si estan dormidos, el primer pedido
+          # puede tardar mas de 2 minutos. Con estos tiempos el gateway espera en lugar de cortar.
+          httpclient:
+            connect-timeout: 60000
+            response-timeout: 180s
+          routes:
+            # Cada modulo se publica bajo su propio prefijo. Se saca el prefijo antes de reenviar,
+            # asi cada modulo recibe exactamente la ruta que ya conoce (/depositos, /donadores, ...).
+            # El prefijo es necesario porque hay rutas repetidas entre modulos: POST /donaciones existe
+            # en Donaciones y en Logistica, y DELETE /admin/db en Donaciones e Incentivos.
+            - id: donaciones
+              uri: ${DONACIONES_URL}
+              predicates:
+                - Path=/api/donaciones/**
+              filters:
+                - StripPrefix=2
+            - id: donadores-y-entidades
+              uri: ${DONADORES_URL}
+              predicates:
+                - Path=/api/donadores/**
+              filters:
+                - StripPrefix=2
+            - id: incentivos
+              uri: ${INCENTIVOS_URL}
+              predicates:
+                - Path=/api/incentivos/**
+              filters:
+                - StripPrefix=2
+            - id: logistica
+              uri: ${LOGISTICA_URL}
+              predicates:
+                - Path=/api/logistica/**
+              filters:
+                - StripPrefix=2
+            - id: consultas
+              uri: ${CONSULTAS_URL:http://localhost:8090}
+              predicates:
+                - Path=/api/consultas/**
+              filters:
+                - StripPrefix=2
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    ar.edu.utn.dds.k3003.gateway: INFO
